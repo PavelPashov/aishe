@@ -11,7 +11,8 @@ const { stdin: input, stdout: output } = process;
  * @returns {string} The hash of the input string.
  */
 const getCacheKey = (question: string) => {
-  return crypto.createHash("sha256").update(question).digest("hex");
+  const hash = crypto.createHash("sha256").update(question).digest("hex");
+  return `aishe:question:${hash}`;
 };
 
 /**
@@ -46,88 +47,88 @@ const setToCache = async (
   await redisClient.set(hash, JSON.stringify(responseData));
 };
 
+const rl = createInterface({ input, output });
+let startTime = 0;
+
+const redisClient = await createClient({
+  socket: {
+    host: process.env["REDIS_HOST"] ?? "localhost",
+    port: Number.parseInt(process.env["REDIS_PORT"] ?? "6379"),
+  },
+  username: process.env["REDIS_USER"],
+  password: process.env["REDIS_PASS"],
+})
+  .on("error", (err) => console.log("Redis Client Error", err))
+  .connect();
+
 async function main() {
-  const rl = createInterface({ input, output });
-  let startTime = 0;
+  const answer = await rl.question("Please enter your question: ");
 
-  const redisClient = await createClient({
-    socket: {
-      host: process.env["REDIS_HOST"] ?? "localhost",
-      port: Number.parseInt(process.env["REDIS_PORT"] ?? "6379"),
-    },
-    username: process.env["REDIS_USER"],
-    password: process.env["REDIS_PASS"],
-  })
-    .on("error", (err) => console.log("Redis Client Error", err))
-    .connect();
+  startTime = performance.now();
+  const question = answer.trim();
 
-  try {
-    const answer = await rl.question("Please enter your question: ");
-
-    startTime = performance.now();
-    const question = answer.trim();
-
-    if (!question) {
-      console.log("Error: You must provide a question.");
-      process.exit(1);
-    }
-
-    console.log(`Asking: ${question}`);
-    console.log("Waiting for response...\n");
-
-    let data;
-    const cached = await getFromCache(redisClient, question);
-
-    if (cached) {
-      data = JSON.parse(cached);
-    } else {
-      const response = await fetch(
-        `${process.env["AISHE_API_URL"]}/api/v1/ask`,
-        {
-          body: JSON.stringify({ question }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-        },
-      );
-
-      data = await response.json();
-      await setToCache(redisClient, question, data);
-    }
-
-    // Print answer
-    console.log("=".repeat(70));
-    console.log("ANSWER:");
-    console.log("=".repeat(70));
-    console.log(data.answer);
-
-    // Print sources if available
-    if (data.sources?.length) {
-      console.log("\n" + "=".repeat(70));
-      console.log("SOURCES:");
-      console.log("=".repeat(70));
-      for (const source of data.sources) {
-        console.log(`[${source.number}] ${source.title}`);
-        console.log(`    ${source.url}`);
-      }
-    }
-
-    // Print processing time
-    console.log("\n" + "=".repeat(70));
-    console.log(`Processing time: ${data.processing_time.toFixed(2)} seconds`);
-    console.log("=".repeat(70));
-  } catch (error) {
-    console.error(error);
+  if (!question) {
+    console.log("Error: You must provide a question.");
     process.exit(1);
-  } finally {
-    rl.close();
-    redisClient.destroy();
-    console.log(
-      `Total time:  ${(performance.now() - startTime).toFixed(2)} ms`,
-    );
-    console.log("=".repeat(70));
   }
+
+  console.log(`Asking: ${question}`);
+  console.log("Waiting for response...\n");
+
+  let data;
+  const cached = await getFromCache(redisClient, question);
+
+  if (cached) {
+    data = JSON.parse(cached);
+  } else {
+    const response = await fetch(
+      `${process.env["AISHE_API_URL"]}/api/v1/ask`,
+      {
+        body: JSON.stringify({ question }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    );
+
+    data = await response.json();
+    await setToCache(redisClient, question, data);
+  }
+
+  // Print answer
+  console.log("=".repeat(70));
+  console.log("ANSWER:");
+  console.log("=".repeat(70));
+  console.log(data.answer);
+
+  // Print sources if available
+  if (data.sources?.length) {
+    console.log("\n" + "=".repeat(70));
+    console.log("SOURCES:");
+    console.log("=".repeat(70));
+    for (const source of data.sources) {
+      console.log(`[${source.number}] ${source.title}`);
+      console.log(`    ${source.url}`);
+    }
+  }
+
+  // Print processing time
+  console.log("\n" + "=".repeat(70));
+  console.log(`Processing time: ${data.processing_time.toFixed(2)} seconds`);
+  console.log("=".repeat(70));
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  console.error(error);
+  process.exit(1);
+} finally {
+  rl.close();
+  redisClient.destroy();
+  console.log(
+    `Total time:  ${(performance.now() - startTime).toFixed(2)} ms`,
+  );
+  console.log("=".repeat(70));
+}

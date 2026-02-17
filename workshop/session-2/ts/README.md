@@ -11,6 +11,10 @@ Before starting, ensure you have:
    - Or use a remote Redis instance in the cloud
 4. **Node.js 20+**: Required for this project
 
+## Your Task
+
+- [ ] Implement the TODO comments inside the `getCacheKey`, `getFromCache`, and `setToCache` functions in [starter.ts](./starter.ts)
+
 ## Project Setup
 
 ### Install Dependencies
@@ -64,11 +68,11 @@ redis-cli
 # List all keys
 KEYS *
 
-# Get a cached value (replace with actual key)
-GET "aishe:question:What is the capital of France?"
+# Get a cached value (replace with actual hash)
+GET "aishe:question:a1b2c3d4e5f6..."
 
 # Check TTL (time to live)
-TTL "aishe:question:What is the capital of France?"
+TTL "aishe:question:a1b2c3d4e5f6..."
 
 # Clear all cache
 FLUSHDB
