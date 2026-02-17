@@ -10,6 +10,10 @@ Before starting, ensure you have:
 2. **AISHE Server Running**: The AISHE server must be accessible
 3. **Node.js 20+**: Required for this project
 
+## Your Task
+
+- [ ] Implement the TODO comments inside the `getFromCache` and `saveToCache` functions in [starter.js](./starter.js)
+
 ## Project Setup
 
 ### 1. Install Dependencies
@@ -25,14 +29,16 @@ This will install:
 
 ### 2. Configure Environment
 
-Create a `.env` file in this directory:
+Copy the example environment file:
 
 ```bash
 cp .env.example .env
 ```
 
+Then edit the `.env` file with your LangCache credentials:
+
 ```bash
-# .env file
+# .env file - update these values
 AISHE_SERVER_URL=http://localhost:8000
 LANGCACHE_API_KEY=YOUR_API_KEY
 LANGCACHE_CACHE_ID=YOUR_CACHE_ID

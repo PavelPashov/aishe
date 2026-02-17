@@ -34,81 +34,78 @@ const saveToCache = async (langCache, question, response) => {
     throw new Error("Not Implemented!");
 };
 
+const rl = createInterface({ input, output });
+
+let startTime = 0;
+
+const langCache = new LangCache({
+  serverURL: process.env["LANGCACHE_SERVER_URL"],
+  cacheId: process.env["LANGCACHE_CACHE_ID"],
+  apiKey: process.env["LANGCACHE_API_KEY"],
+});
+
 async function main() {
-    const rl = createInterface({ input, output });
+  const answer = await rl.question("Please enter your question: ");
 
-    let startTime = 0;
+  startTime = performance.now();
 
-    const langCache = new LangCache({
-        serverURL: process.env["LANGCACHE_SERVER_URL"],
-        cacheId: process.env["LANGCACHE_CACHE_ID"],
-        apiKey: process.env["LANGCACHE_API_KEY"],
+  const question = answer.trim();
+  if (!question) {
+    console.log("Error: You must provide a question.");
+    process.exit(1);
+  }
+
+  console.log(`Asking: ${question}`);
+  console.log("Waiting for response...\n");
+
+  let data;
+  const cached = await getFromCache(langCache, question);
+
+  if (cached.length) {
+    data = JSON.parse(cached[0].response);
+  } else {
+    const response = await fetch(`${process.env["AISHE_API_URL"]}/api/v1/ask`, {
+      body: JSON.stringify({ question }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
     });
 
-    try {
-        const answer = await rl.question("Please enter your question: ");
+    data = await response.json();
+    await saveToCache(langCache, question, data);
+  }
 
-        startTime = performance.now();
+  // Print answer
+  console.log("=".repeat(70));
+  console.log("ANSWER:");
+  console.log("=".repeat(70));
+  console.log(data.answer);
 
-        const question = answer.trim();
-        if (!question) {
-            console.log("Error: You must provide a question.");
-            process.exit(1);
-        }
-
-        console.log(`Asking: ${question}`);
-        console.log("Waiting for response...\n");
-
-        let data;
-        const cached = await getFromCache(langCache, question);
-
-        if (cached.length) {
-            data = JSON.parse(cached[0].response);
-        }
-        else {
-            const response = await fetch(`${process.env["AISHE_API_URL"]}/api/v1/ask`, {
-                body: JSON.stringify({ question }),
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                method: "POST",
-            });
-
-            data = await response.json();
-            await saveToCache(langCache, question, data);
-        }
-
-        // Print answer
-        console.log("=".repeat(70));
-        console.log("ANSWER:");
-        console.log("=".repeat(70));
-        console.log(data.answer);
-
-        // Print sources if available
-        if (data.sources?.length) {
-            console.log("\n" + "=".repeat(70));
-            console.log("SOURCES:");
-            console.log("=".repeat(70));
-            for (const source of data.sources) {
-                console.log(`[${source.number}] ${source.title}`);
-                console.log(`    ${source.url}`);
-            }
-        }
-
-        // Print processing time
-        console.log("\n" + "=".repeat(70));
-        console.log(`Processing time: ${data.processing_time.toFixed(2)} seconds`);
-        console.log("=".repeat(70));
+  // Print sources if available
+  if (data.sources?.length) {
+    console.log("\n" + "=".repeat(70));
+    console.log("SOURCES:");
+    console.log("=".repeat(70));
+    for (const source of data.sources) {
+      console.log(`[${source.number}] ${source.title}`);
+      console.log(`    ${source.url}`);
     }
-    catch (error) {
-        console.error(error);
-        process.exit(1);
-    }
-    finally {
-        rl.close();
-        console.log(`Total time:  ${(performance.now() - startTime).toFixed(2)} ms`);
-        console.log("=".repeat(70));
-    }
+  }
+
+  // Print processing time
+  console.log("\n" + "=".repeat(70));
+  console.log(`Processing time: ${data.processing_time.toFixed(2)} seconds`);
+  console.log("=".repeat(70));
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  console.error(error);
+  process.exit(1);
+} finally {
+  rl.close();
+  console.log(`Total time:  ${(performance.now() - startTime).toFixed(2)} ms`);
+  console.log("=".repeat(70));
+}
